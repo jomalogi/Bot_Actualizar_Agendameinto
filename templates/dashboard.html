@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <div>
+    <h1 class="page-title">Mis agendamientos</h1>
+    <p class="page-subtitle">Sube un Excel para iniciar un nuevo proceso de agendamiento</p>
+  </div>
+</div>
+
+<!-- Upload Card -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header">
+    <span class="card-title">📂 Subir nuevo Excel</span>
+    {% if not current_user.claro_user %}
+    <a href="{{ url_for('perfil') }}" class="btn btn-secondary btn-sm">⚠️ Configura tus credenciales Claro primero</a>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('subir_excel') }}" enctype="multipart/form-data" id="uploadForm">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📊</div>
+        <p class="upload-text"><strong>Haz clic o arrastra</strong> tu archivo Excel aquí</p>
+        <p class="upload-text" style="margin-top:.4rem;font-size:.8rem;">Solo .xlsx o .xls — máx. 10 MB</p>
+        <p id="fileName" style="margin-top:.75rem;font-weight:600;color:#DA291C;display:none;"></p>
+      </div>
+      <input type="file" name="excel" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="onFileSelected(this)">
+
+      <div style="margin-top:1.25rem;text-align:right;">
+        <button type="submit" class="btn btn-primary" id="btnSubir" disabled>
+          🚀 Iniciar agendamiento
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Historial -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Historial de ejecuciones</span>
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <span style="font-size:.8rem;color:#6b7280;">Últimas 20</span>
+      {% if trabajos %}
+      <form method="POST" action="{{ url_for('limpiar_historial') }}" onsubmit="return confirm('¿Limpiar todo el historial? Esta acción no se puede deshacer.')">
+        <button type="submit" class="btn btn-secondary btn-sm">🗑 Limpiar historial</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% if trabajos %}
+  <table>
+    <thead>
+      <tr>
+        <th>Archivo</th>
+        <th>Estado</th>
+        <th>Progreso</th>
+        <th>Exitosas</th>
+        <th>Errores</th>
+        <th>Fecha</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in trabajos %}
+      <tr>
+        <td style="font-weight:500;">{{ t.nombre_excel }}</td>
+        <td>
+          <span class="badge badge-{{ t.estado }}">
+            {% if t.estado == 'ejecutando' %}⟳ {% endif %}
+            {{ t.estado.capitalize() }}
+          </span>
+        </td>
+        <td style="min-width:120px;">
+          <div class="progress-wrap">
+            <div class="progress-bar" style="width:{{ (t.procesadas / t.total * 100) if t.total > 0 else 0 }}%"></div>
+          </div>
+          <span style="font-size:.75rem;color:#6b7280;">{{ t.procesadas }}/{{ t.total }}</span>
+        </td>
+        <td style="color:#15803d;font-weight:600;">{{ t.exitosas }}</td>
+        <td style="color:#be123c;font-weight:600;">{{ t.fallidas }}</td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ t.creado_en.strftime('%d/%m %H:%M') }}</td>
+        <td>
+          <a href="{{ url_for('ver_trabajo', trabajo_id=t.id) }}" class="btn btn-secondary btn-sm">Ver</a>
+          {% if t.archivo_salida %}
+          <a href="{{ url_for('descargar', trabajo_id=t.id) }}" class="btn btn-success btn-sm">↓ Excel</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="card-body" style="text-align:center;color:#9ca3af;padding:3rem;">
+    <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+    <p>Aún no has procesado ningún archivo.</p>
+    <p style="font-size:.85rem;margin-top:.3rem;">Sube un Excel para comenzar.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function onFileSelected(input) {
+  if (input.files.length > 0) {
+    document.getElementById('fileName').textContent = '✓ ' + input.files[0].name;
+    document.getElementById('fileName').style.display = 'block';
+    document.getElementById('btnSubir').disabled = false;
+  }
+}
+
+// Drag & drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('dragover');
+  const fi = document.getElementById('fileInput');
+  fi.files = e.dataTransfer.files;
+  onFileSelected(fi);
+});
+
+// Auto-refresh si hay trabajos ejecutando
+{% if trabajos|selectattr('estado','equalto','ejecutando')|list %}
+setTimeout(() => location.reload(), 5000);
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mi perfil{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Mi perfil</h1>
+  <p class="page-subtitle">Configura tus credenciales del módulo Claro y tu contraseña</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;max-width:800px;">
+
+  <!-- Credenciales Claro -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🔐 Credenciales módulo Claro</span></div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label>Usuario del módulo</label>
+          <input type="text" name="claro_user" value="{{ current_user.claro_user or '' }}" placeholder="Usuario Claro" required>
+        </div>
+        <div class="form-group">
+          <label>Contraseña del módulo</label>
+          <input type="password" name="claro_pass" placeholder="Contraseña Claro" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar credenciales</button>
+      </form>
+      {% if current_user.claro_user %}
+      <p style="margin-top:1rem;font-size:.82rem;color:#15803d;">✅ Credenciales configuradas para: <strong>{{ current_user.claro_user }}</strong></p>
+      {% else %}
+      <p style="margin-top:1rem;font-size:.82rem;color:#be123c;">⚠️ No has configurado tus credenciales aún.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Cambiar contraseña -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🔑 Cambiar contraseña</span></div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label>Nueva contraseña</label>
+          <input type="password" name="new_password" placeholder="Mínimo 8 caracteres">
+        </div>
+        <button type="submit" class="btn btn-secondary">Actualizar contraseña</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

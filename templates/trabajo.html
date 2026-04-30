@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}Trabajo #{{ trabajo.id }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">← Volver</a>
+  <div>
+    <h1 class="page-title">{{ trabajo.nombre_excel }}</h1>
+    <p class="page-subtitle">Trabajo #{{ trabajo.id }} · Iniciado {{ trabajo.creado_en.strftime('%d/%m/%Y %H:%M') }}</p>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:.75rem;align-items:center;">
+    <span class="badge badge-{{ trabajo.estado }}" id="badgeEstado">{{ trabajo.estado.capitalize() }}</span>
+    {% if trabajo.archivo_salida %}
+    <a href="{{ url_for('descargar', trabajo_id=trabajo.id) }}" class="btn btn-success">↓ Descargar Excel resultado</a>
+    {% else %}
+    <button id="btnDescargar" class="btn btn-success" style="display:none;" onclick="window.location.href='{{ url_for('descargar', trabajo_id=trabajo.id) }}'">↓ Descargar Excel resultado</button>
+    {% endif %}
+    {% if trabajo.estado in ['ejecutando', 'pendiente'] %}
+    <button id="btnDetener" class="btn btn-danger" onclick="detenerProceso()">⏹ Detener</button>
+    <button id="btnReanudar" class="btn btn-secondary" style="display:none;" onclick="reanudarProceso()">▶ Reanudar</button>
+    {% elif trabajo.estado == 'detenido' %}
+    <button id="btnDetener" class="btn btn-danger" style="display:none;" onclick="detenerProceso()">⏹ Detener</button>
+    <button id="btnReanudar" class="btn btn-secondary" onclick="reanudarProceso()">▶ Reanudar</button>
+    {% else %}
+    <button id="btnDetener" class="btn btn-danger" style="display:none;" onclick="detenerProceso()">⏹ Detener</button>
+    <button id="btnReanudar" class="btn btn-secondary" style="display:none;" onclick="reanudarProceso()">▶ Reanudar</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;" id="statTotal">{{ trabajo.total }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Total</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#DA291C;" id="statProcesadas">{{ trabajo.procesadas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Procesadas</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#15803d;" id="statExitosas">{{ trabajo.exitosas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Exitosas</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#be123c;" id="statFallidas">{{ trabajo.fallidas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Con error</div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel PIN 2FA (oculto hasta que se necesite) -->
+<div class="card" id="panelPin" style="margin-bottom:1.5rem;display:none;border:2px solid #DA291C;">
+  <div class="card-body" style="padding:1.5rem;">
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;">
+      <span style="font-size:1.5rem;">🔐</span>
+      <div>
+        <div style="font-weight:700;font-size:1rem;">Verificación de seguridad requerida</div>
+        <div style="font-size:.85rem;color:#6b7280;" id="msgPin">El módulo Claro solicita un PIN de verificación.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;align-items:center;">
+      <input type="text" id="inputPin" maxlength="10"
+             placeholder="Ingresa el PIN recibido"
+             style="flex:1;padding:.6rem 1rem;border:1.5px solid #DA291C;border-radius:8px;font-size:1.1rem;letter-spacing:.2rem;font-family:'Barlow Condensed',sans-serif;outline:none;"
+             onkeydown="if(event.key==='Enter') enviarPin()">
+      <button onclick="enviarPin()"
+              style="padding:.6rem 1.5rem;background:#DA291C;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;">
+        ✅ Enviar PIN
+      </button>
+    </div>
+    <div id="pinStatus" style="margin-top:.5rem;font-size:.82rem;color:#6b7280;"></div>
+  </div>
+</div>
+
+<!-- Barra progreso -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-body" style="padding:1.25rem;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:.6rem;">
+      <span style="font-size:.85rem;font-weight:600;" id="msgProgreso">
+        {% if trabajo.estado == 'ejecutando' %}⟳ Procesando...{% elif trabajo.estado == 'completado' %}✅ Completado{% else %}{{ trabajo.estado }}{% endif %}
+      </span>
+      <span style="font-size:.85rem;color:#6b7280;" id="pctProgreso">
+        {{ ((trabajo.procesadas / trabajo.total * 100)|round|int) if trabajo.total > 0 else 0 }}%
+      </span>
+    </div>
+    <div class="progress-wrap" style="height:12px;">
+      <div class="progress-bar" id="progressBar"
+           style="width:{{ ((trabajo.procesadas / trabajo.total * 100)|round|int) if trabajo.total > 0 else 0 }}%">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla de órdenes -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Detalle por orden</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>N° Orden</th>
+        <th>Tipo</th>
+        <th>Estado</th>
+        <th>Detalle</th>
+        <th>Procesado</th>
+      </tr>
+    </thead>
+    <tbody id="tablaOrdenes">
+      {% for o in ordenes %}
+      <tr id="fila-{{ o.numero_orden }}">
+        <td style="font-weight:600;font-family:'Barlow Condensed',sans-serif;font-size:1rem;">{{ o.numero_orden }}</td>
+        <td style="color:#6b7280;">{{ o.tipo_orden }}</td>
+        <td>
+          <span class="est-{{ o.estado|lower|replace(' ','_')|replace('-','_') }}">
+            {{ o.estado }}
+          </span>
+        </td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ o.detalle or '—' }}</td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ o.procesado_en.strftime('%H:%M:%S') if o.procesado_en else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not ordenes %}
+  <div style="text-align:center;padding:2rem;color:#9ca3af;" id="emptyMsg">
+    Esperando inicio del proceso...
+  </div>
+  {% endif %}
+</div>
+
+<script>
+const TRABAJO_ID = {{ trabajo.id }};
+const ESTADO_INICIAL = "{{ trabajo.estado }}";
+
+// Detener proceso
+function detenerProceso() {
+  if (!confirm('¿Seguro que deseas detener el proceso? Las órdenes pendientes no se procesarán.')) return;
+  const btn = document.getElementById('btnDetener');
+  btn.disabled = true;
+  btn.textContent = 'Deteniendo...';
+  fetch(`/api/detener/${TRABAJO_ID}`, { method: 'POST' })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.style.display = 'none';
+      document.getElementById('btnReanudar').style.display = 'inline-flex';
+      document.getElementById('msgProgreso').textContent = '⏹ Proceso detenido por el usuario';
+      document.getElementById('badgeEstado').textContent = 'Detenido';
+      document.getElementById('badgeEstado').className = 'badge badge-error';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '⏹ Detener';
+      alert('Error al detener: ' + (data.error || 'Inténtalo de nuevo'));
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = '⏹ Detener';
+  });
+}
+
+// Reanudar proceso
+function reanudarProceso() {
+  const btn = document.getElementById('btnReanudar');
+  btn.disabled = true;
+  btn.textContent = 'Reanudando...';
+  fetch(`/api/reanudar/${TRABAJO_ID}`, { method: 'POST' })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.style.display = 'none';
+      document.getElementById('btnDetener').style.display = 'inline-flex';
+      document.getElementById('btnDetener').disabled = false;
+      document.getElementById('btnDetener').textContent = '⏹ Detener';
+      document.getElementById('msgProgreso').textContent = '⏳ Reanudando proceso...';
+      document.getElementById('badgeEstado').textContent = 'Ejecutando';
+      document.getElementById('badgeEstado').className = 'badge badge-ejecutando';
+      // Reconectar socket si no está conectado
+      if (typeof socket !== 'undefined' && !socket.connected) socket.connect();
+      else location.reload();
+    } else {
+      btn.disabled = false;
+      btn.textContent = '▶ Reanudar';
+      alert('Error al reanudar: ' + (data.error || 'Inténtalo de nuevo'));
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = '▶ Reanudar';
+  });
+}
+
+// Enviar PIN al servidor
+function enviarPin() {
+  const pin = document.getElementById('inputPin').value.trim();
+  const status = document.getElementById('pinStatus');
+  if (!pin) {
+    status.textContent = '⚠️ Ingresa el PIN primero.';
+    status.style.color = '#be123c';
+    return;
+  }
+  status.textContent = 'Enviando...';
+  status.style.color = '#6b7280';
+  fetch(`/api/pin/${TRABAJO_ID}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      status.textContent = '✅ PIN enviado. Continuando proceso...';
+      status.style.color = '#15803d';
+      document.getElementById('inputPin').disabled = true;
+      setTimeout(() => {
+        document.getElementById('panelPin').style.display = 'none';
+      }, 3000);
+    } else {
+      status.textContent = '❌ Error: ' + (data.error || 'Inténtalo de nuevo');
+      status.style.color = '#be123c';
+    }
+  })
+  .catch(() => {
+    status.textContent = '❌ Error de conexión. Inténtalo de nuevo.';
+    status.style.color = '#be123c';
+  });
+}
+
+// Color por estado
+function claseEstado(est) {
+  const m = {
+    'AGENDADO':           'est-agendado',
+    'RE-AGENDADO':        'est-reagendado',
+    'Orden Cerrada en RR':'est-cerrada',
+    'ERROR':              'est-error',
+    'procesando':         'est-procesando',
+  };
+  return m[est] || 'est-error';
+}
+
+function actualizarStats(data) {
+  if (data.total !== undefined)      document.getElementById('statTotal').textContent      = data.total;
+  if (data.procesadas !== undefined) document.getElementById('statProcesadas').textContent = data.procesadas;
+  if (data.exitosas !== undefined)   document.getElementById('statExitosas').textContent   = data.exitosas;
+  if (data.fallidas !== undefined)   document.getElementById('statFallidas').textContent   = data.fallidas;
+
+  const total = data.total || parseInt(document.getElementById('statTotal').textContent) || 1;
+  const proc  = data.procesadas !== undefined ? data.procesadas : parseInt(document.getElementById('statProcesadas').textContent) || 0;
+  const pct = Math.round(proc / total * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('pctProgreso').textContent = pct + '%';
+  if (data.mensaje) document.getElementById('msgProgreso').textContent = data.mensaje;
+}
+
+function agregarFilaOrden(orden) {
+  if (!orden) return;
+  document.getElementById('emptyMsg')?.remove();
+  const tbody = document.getElementById('tablaOrdenes');
+  let fila = document.getElementById('fila-' + orden.numero);
+  const esProcesando = orden.estado === 'procesando';
+  const html = `
+    <td style="font-weight:600;font-family:'Barlow Condensed',sans-serif;font-size:1rem;">${orden.numero}</td>
+    <td style="color:#6b7280;">Orden de Trabajo</td>
+    <td><span class="${claseEstado(orden.estado)}">${esProcesando ? '⟳ Procesando...' : orden.estado}</span></td>
+    <td style="color:#6b7280;font-size:.82rem;">${orden.detalle || '—'}</td>
+    <td style="color:#6b7280;font-size:.82rem;">${new Date().toLocaleTimeString()}</td>
+  `;
+  if (fila) {
+    fila.innerHTML = html;
+  } else {
+    fila = document.createElement('tr');
+    fila.id = 'fila-' + orden.numero;
+    fila.innerHTML = html;
+    tbody.insertBefore(fila, tbody.firstChild);
+  }
+}
+
+// ── Socket.IO ──
+if (ESTADO_INICIAL === 'ejecutando' || ESTADO_INICIAL === 'pendiente') {
+  const socket = io();
+  socket.on('connect', () => {
+    socket.emit('suscribir', { trabajo_id: TRABAJO_ID });
+    console.log('Suscrito a trabajo', TRABAJO_ID);
+  });
+
+  socket.on('progreso', (data) => {
+    if (data.trabajo_id !== TRABAJO_ID) return;
+    actualizarStats(data);
+    if (data.orden) agregarFilaOrden(data.orden);
+  });
+
+  socket.on('solicitar_pin', (data) => {
+    if (data.trabajo_id !== TRABAJO_ID) return;
+    const panel = document.getElementById('panelPin');
+    const msg   = document.getElementById('msgPin');
+    if (data.mensaje) msg.textContent = data.mensaje;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('inputPin').focus();
+    document.getElementById('msgProgreso').textContent = '🔐 Esperando PIN de verificación...';
+  });
+
+  // Detectar cuando se completa para mostrar botón descarga
+  const observer = new MutationObserver(() => {
+    fetch(`/api/trabajo/${TRABAJO_ID}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.estado === 'completado') {
+          document.getElementById('badgeEstado').textContent = 'Completado';
+          document.getElementById('badgeEstado').className = 'badge badge-completado';
+          if (data.archivo_salida) {
+            document.getElementById('btnDescargar').style.display = 'inline-flex';
+          }
+        }
+      });
+  });
+  observer.observe(document.getElementById('statProcesadas'), { childList: true });
+}
+</script>
+{% endblock %}

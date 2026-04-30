@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Administrar usuarios{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+  <div>
+    <h1 class="page-title">Usuarios del sistema</h1>
+    <p class="page-subtitle">Gestiona quién puede usar la plataforma</p>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('modalCrear').style.display='flex'">+ Nuevo usuario</button>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario</th><th>Email</th><th>Rol</th><th>Estado</th><th>Creado</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+      <tr>
+        <td style="font-weight:600;">
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            <div style="width:30px;height:30px;border-radius:50%;background:#DA291C;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">{{ u.username[0].upper() }}</div>
+            {{ u.username }}
+          </div>
+        </td>
+        <td style="color:#6b7280;">{{ u.email }}</td>
+        <td>
+          {% if u.es_admin %}<span class="badge" style="background:#fef3c7;color:#92400e;">Admin</span>
+          {% else %}<span class="badge" style="background:#f3f4f6;color:#374151;">Usuario</span>{% endif %}
+        </td>
+        <td>
+          <span class="badge {% if u.activo %}badge-completado{% else %}badge-error{% endif %}">
+            {{ 'Activo' if u.activo else 'Inactivo' }}
+          </span>
+        </td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ u.creado_en.strftime('%d/%m/%Y') }}</td>
+        <td>
+          {% if u.id != current_user.id %}
+          <button class="btn btn-secondary btn-sm" onclick="toggleUser({{ u.id }}, this)">
+            {{ 'Desactivar' if u.activo else 'Activar' }}
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal crear usuario -->
+<div id="modalCrear" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:999;">
+  <div class="card" style="width:400px;max-width:90vw;">
+    <div class="card-header">
+      <span class="card-title">Nuevo usuario</span>
+      <button onclick="document.getElementById('modalCrear').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="form-group"><label>Usuario</label><input type="text" id="nu_username" placeholder="Nombre de usuario"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="nu_email" placeholder="correo@empresa.com"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="nu_password" placeholder="••••••••"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:.5rem;">
+        <input type="checkbox" id="nu_admin" style="width:auto;">
+        <label for="nu_admin" style="margin:0;">Es administrador</label>
+      </div>
+      <div id="crearError" style="color:#be123c;font-size:.85rem;display:none;margin-bottom:.75rem;"></div>
+      <div style="display:flex;gap:.75rem;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="document.getElementById('modalCrear').style.display='none'">Cancelar</button>
+        <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleUser(uid, btn) {
+  fetch(`/admin/usuarios/${uid}/toggle`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = data.activo ? 'Desactivar' : 'Activar';
+      location.reload();
+    });
+}
+
+function crearUsuario() {
+  const body = {
+    username:  document.getElementById('nu_username').value,
+    email:     document.getElementById('nu_email').value,
+    password:  document.getElementById('nu_password').value,
+    es_admin:  document.getElementById('nu_admin').checked,
+  };
+  fetch('/admin/usuarios/crear', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      document.getElementById('crearError').textContent = data.error;
+      document.getElementById('crearError').style.display = 'block';
+    } else {
+      location.reload();
+    }
+  });
+}
+</script>
+{% endblock %}

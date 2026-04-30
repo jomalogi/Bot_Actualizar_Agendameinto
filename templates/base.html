@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Agendamiento WFM{% endblock %} — Claro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rojo:       #DA291C;
+  --rojo-dark:  #b01f14;
+  --rojo-light: #fff0ef;
+  --gris-bg:    #f4f5f7;
+  --gris-borde: #e0e2e7;
+  --gris-texto: #5a6072;
+  --blanco:     #ffffff;
+  --negro:      #1a1d27;
+  --verde:      #1e9e5e;
+  --azul:       #1a6eb5;
+  --naranja:    #d97706;
+  --shadow-sm:  0 1px 4px rgba(0,0,0,.08);
+  --shadow-md:  0 4px 16px rgba(0,0,0,.1);
+  --radius:     10px;
+  --font:       'Barlow', sans-serif;
+  --font-cond:  'Barlow Condensed', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--gris-bg); color: var(--negro); min-height: 100vh; }
+
+/* ── NAV ── */
+nav {
+  background: var(--negro);
+  padding: 0 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 58px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: .75rem;
+  font-family: var(--font-cond); font-size: 1.25rem; font-weight: 700;
+  color: var(--blanco); text-decoration: none; letter-spacing: .5px;
+}
+.nav-brand span { color: var(--rojo); }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rojo); display: inline-block; }
+.nav-links { display: flex; align-items: center; gap: 1.5rem; }
+.nav-links a {
+  color: rgba(255,255,255,.75); text-decoration: none; font-size: .875rem;
+  font-weight: 500; transition: color .2s;
+}
+.nav-links a:hover { color: var(--blanco); }
+.nav-links a.active { color: var(--blanco); }
+.nav-user {
+  display: flex; align-items: center; gap: .6rem;
+  color: rgba(255,255,255,.85); font-size: .875rem;
+}
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--rojo); color: var(--blanco);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .8rem; font-family: var(--font-cond);
+}
+
+/* ── LAYOUT ── */
+.page { max-width: 1180px; margin: 0 auto; padding: 2rem 1.5rem; }
+.page-header { margin-bottom: 1.75rem; }
+.page-title { font-family: var(--font-cond); font-size: 1.8rem; font-weight: 700; color: var(--negro); }
+.page-subtitle { color: var(--gris-texto); margin-top: .25rem; font-size: .9rem; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--blanco); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); border: 1px solid var(--gris-borde);
+  overflow: hidden;
+}
+.card-header {
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid var(--gris-borde);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-weight: 600; font-size: .95rem; }
+.card-body { padding: 1.5rem; }
+
+/* ── BOTONES ── */
+.btn {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .55rem 1.25rem; border-radius: 7px; font-size: .875rem;
+  font-weight: 600; cursor: pointer; border: none; transition: all .18s;
+  text-decoration: none; font-family: var(--font);
+}
+.btn-primary   { background: var(--rojo); color: var(--blanco); }
+.btn-primary:hover { background: var(--rojo-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(218,41,28,.3); }
+.btn-secondary { background: var(--gris-bg); color: var(--negro); border: 1px solid var(--gris-borde); }
+.btn-secondary:hover { background: #eaecf0; }
+.btn-success   { background: var(--verde); color: var(--blanco); }
+.btn-danger    { background: #dc2626; color: var(--blanco); }
+.btn-danger:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,38,38,.3); }
+.btn-danger:disabled { background: #f87171; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-sm { padding: .35rem .85rem; font-size: .8rem; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .25rem .7rem; border-radius: 99px; font-size: .75rem; font-weight: 600;
+}
+.badge-pendiente  { background: #f3f4f6; color: #6b7280; }
+.badge-ejecutando { background: #eff6ff; color: #1d4ed8; }
+.badge-completado { background: #f0fdf4; color: #15803d; }
+.badge-error      { background: #fff1f2; color: #be123c; }
+.badge-detenido   { background: #fef3c7; color: #92400e; }
+
+/* ── FLASH ── */
+.flash-list { list-style: none; margin-bottom: 1rem; }
+.flash-item {
+  padding: .75rem 1.1rem; border-radius: 8px; font-size: .875rem;
+  font-weight: 500; margin-bottom: .5rem; display: flex; align-items: center; gap: .5rem;
+}
+.flash-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.flash-error   { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
+
+/* ── TABLA ── */
+table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+th { background: var(--gris-bg); padding: .7rem 1rem; text-align: left; font-weight: 600; font-size: .8rem; color: var(--gris-texto); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--gris-borde); }
+td { padding: .75rem 1rem; border-bottom: 1px solid var(--gris-borde); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafbfc; }
+
+/* ── ESTADO COLORES ── */
+.est-agendado    { color: var(--verde);   font-weight: 600; }
+.est-reagendado  { color: var(--azul);    font-weight: 600; }
+.est-cerrada     { color: var(--naranja); font-weight: 600; }
+.est-error       { color: var(--rojo);    font-weight: 600; }
+.est-procesando  { color: #7c3aed;        font-weight: 600; }
+
+/* ── PROGRESS BAR ── */
+.progress-wrap { background: #e5e7eb; border-radius: 99px; height: 8px; overflow: hidden; }
+.progress-bar  { height: 100%; background: var(--rojo); border-radius: 99px; transition: width .4s ease; }
+
+/* ── FORM ── */
+.form-group { margin-bottom: 1.25rem; }
+label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .4rem; color: var(--negro); }
+input[type=text], input[type=email], input[type=password] {
+  width: 100%; padding: .6rem .9rem; border: 1px solid var(--gris-borde);
+  border-radius: 7px; font-size: .9rem; font-family: var(--font);
+  transition: border-color .18s;
+}
+input:focus { outline: none; border-color: var(--rojo); box-shadow: 0 0 0 3px rgba(218,41,28,.12); }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--gris-borde); border-radius: var(--radius);
+  padding: 2.5rem; text-align: center; cursor: pointer;
+  transition: all .2s; background: var(--gris-bg);
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--rojo); background: var(--rojo-light);
+}
+.upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+.upload-text { font-size: .9rem; color: var(--gris-texto); }
+.upload-text strong { color: var(--rojo); }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<nav>
+  <a href="{{ url_for('dashboard') }}" class="nav-brand">
+    <span class="nav-dot"></span>
+    Claro <span>WFM</span>
+  </a>
+  {% if current_user.is_authenticated %}
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}>Inicio</a>
+    <a href="{{ url_for('perfil') }}"    {% if request.endpoint == 'perfil'    %}class="active"{% endif %}>Mi perfil</a>
+    {% if current_user.es_admin %}
+    <a href="{{ url_for('admin_usuarios') }}">Usuarios</a>
+    {% endif %}
+  </div>
+  <div class="nav-user">
+    <div class="avatar">{{ current_user.username[0].upper() }}</div>
+    <span>{{ current_user.username }}</span>
+    <a href="{{ url_for('logout') }}" style="color:rgba(255,255,255,.5);font-size:.8rem;margin-left:.5rem;">Salir</a>
+  </div>
+  {% endif %}
+</nav>
+
+<div class="page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="flash-list">
+      {% for cat, msg in messages %}
+      <li class="flash-item flash-{{ cat }}">{{ msg }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

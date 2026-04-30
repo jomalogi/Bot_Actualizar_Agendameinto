@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Trabajo #{{ trabajo.id }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">← Volver</a>
+  <div>
+    <h1 class="page-title">{{ trabajo.nombre_excel }}</h1>
+    <p class="page-subtitle">Trabajo #{{ trabajo.id }} · Iniciado {{ trabajo.creado_en.strftime('%d/%m/%Y %H:%M') }}</p>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:.75rem;align-items:center;">
+    <span class="badge badge-{{ trabajo.estado }}" id="badgeEstado">{{ trabajo.estado.capitalize() }}</span>
+    {% if trabajo.estado == 'ejecutando' %}
+    <form method="POST" action="{{ url_for('detener_trabajo', trabajo_id=trabajo.id) }}"
+          onsubmit="return confirm('¿Seguro que deseas detener este proceso?')">
+      <button type="submit" class="btn" style="background:#dc2626;color:white;">⏹ Detener proceso</button>
+    </form>
+    {% endif %}
+    {% if trabajo.archivo_salida %}
+    <a href="{{ url_for('descargar', trabajo_id=trabajo.id) }}" class="btn btn-success">↓ Descargar Excel resultado</a>
+    {% else %}
+    <button id="btnDescargar" class="btn btn-success" style="display:none;" onclick="window.location.href='{{ url_for('descargar', trabajo_id=trabajo.id) }}'">↓ Descargar Excel resultado</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;" id="statTotal">{{ trabajo.total }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Total</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#DA291C;" id="statProcesadas">{{ trabajo.procesadas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Procesadas</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#15803d;" id="statExitosas">{{ trabajo.exitosas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Exitosas</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:1.25rem;">
+      <div style="font-size:1.9rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#be123c;" id="statFallidas">{{ trabajo.fallidas }}</div>
+      <div style="font-size:.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:.2rem;">Con error</div>
+    </div>
+  </div>
+</div>
+
+<!-- Barra progreso -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-body" style="padding:1.25rem;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:.6rem;">
+      <span style="font-size:.85rem;font-weight:600;" id="msgProgreso">
+        {% if trabajo.estado == 'ejecutando' %}⟳ Procesando...{% elif trabajo.estado == 'completado' %}✅ Completado{% else %}{{ trabajo.estado }}{% endif %}
+      </span>
+      <span style="font-size:.85rem;color:#6b7280;" id="pctProgreso">
+        {{ ((trabajo.procesadas / trabajo.total * 100)|round|int) if trabajo.total > 0 else 0 }}%
+      </span>
+    </div>
+    <div class="progress-wrap" style="height:12px;">
+      <div class="progress-bar" id="progressBar"
+           style="width:{{ ((trabajo.procesadas / trabajo.total * 100)|round|int) if trabajo.total > 0 else 0 }}%">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla de órdenes -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Detalle por orden</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>N° Orden</th>
+        <th>Tipo</th>
+        <th>Estado</th>
+        <th>Detalle</th>
+        <th>Procesado</th>
+      </tr>
+    </thead>
+    <tbody id="tablaOrdenes">
+      {% for o in ordenes %}
+      <tr id="fila-{{ o.numero_orden }}">
+        <td style="font-weight:600;font-family:'Barlow Condensed',sans-serif;font-size:1rem;">{{ o.numero_orden }}</td>
+        <td style="color:#6b7280;">{{ o.tipo_orden }}</td>
+        <td>
+          <span class="est-{{ o.estado|lower|replace(' ','_')|replace('-','_') }}">
+            {{ o.estado }}
+          </span>
+        </td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ o.detalle or '—' }}</td>
+        <td style="color:#6b7280;font-size:.82rem;">{{ o.procesado_en.strftime('%H:%M:%S') if o.procesado_en else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not ordenes %}
+  <div style="text-align:center;padding:2rem;color:#9ca3af;" id="emptyMsg">
+    Esperando inicio del proceso...
+  </div>
+  {% endif %}
+</div>
+
+<script>
+const TRABAJO_ID = {{ trabajo.id }};
+const ESTADO_INICIAL = "{{ trabajo.estado }}";
+
+// Color por estado
+function claseEstado(est) {
+  const m = {
+    'AGENDADO':           'est-agendado',
+    'RE-AGENDADO':        'est-reagendado',
+    'Orden Cerrada en RR':'est-cerrada',
+    'ERROR':              'est-error',
+    'procesando':         'est-procesando',
+  };
+  return m[est] || 'est-error';
+}
+
+function actualizarStats(data) {
+  if (data.total)      document.getElementById('statTotal').textContent     = data.total;
+  if (data.procesadas !== undefined) document.getElementById('statProcesadas').textContent = data.procesadas;
+  if (data.exitosas !== undefined)   document.getElementById('statExitosas').textContent   = data.exitosas;
+  if (data.fallidas !== undefined)   document.getElementById('statFallidas').textContent   = data.fallidas;
+
+  const pct = data.total > 0 ? Math.round(data.procesadas / data.total * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('pctProgreso').textContent = pct + '%';
+  if (data.mensaje) document.getElementById('msgProgreso').textContent = data.mensaje;
+}
+
+function agregarFilaOrden(orden) {
+  if (!orden) return;
+  document.getElementById('emptyMsg')?.remove();
+  const tbody = document.getElementById('tablaOrdenes');
+  let fila = document.getElementById('fila-' + orden.numero);
+  const esProcesando = orden.estado === 'procesando';
+  const html = `
+    <td style="font-weight:600;font-family:'Barlow Condensed',sans-serif;font-size:1rem;">${orden.numero}</td>
+    <td style="color:#6b7280;">Orden de Trabajo</td>
+    <td><span class="${claseEstado(orden.estado)}">${esProcesando ? '⟳ Procesando...' : orden.estado}</span></td>
+    <td style="color:#6b7280;font-size:.82rem;">${orden.detalle || '—'}</td>
+    <td style="color:#6b7280;font-size:.82rem;">${new Date().toLocaleTimeString()}</td>
+  `;
+  if (fila) {
+    fila.innerHTML = html;
+  } else {
+    fila = document.createElement('tr');
+    fila.id = 'fila-' + orden.numero;
+    fila.innerHTML = html;
+    tbody.insertBefore(fila, tbody.firstChild);
+  }
+}
+
+// ── Socket.IO ──
+if (ESTADO_INICIAL === 'ejecutando' || ESTADO_INICIAL === 'pendiente') {
+  const socket = io();
+  socket.on('connect', () => {
+    socket.emit('suscribir', { trabajo_id: TRABAJO_ID });
+    console.log('Suscrito a trabajo', TRABAJO_ID);
+  });
+
+  socket.on('progreso', (data) => {
+    if (data.trabajo_id !== TRABAJO_ID) return;
+    actualizarStats(data);
+    if (data.orden) agregarFilaOrden(data.orden);
+  });
+
+  // Detectar cuando se completa para mostrar botón descarga
+  const observer = new MutationObserver(() => {
+    fetch(`/api/trabajo/${TRABAJO_ID}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.estado === 'completado') {
+          document.getElementById('badgeEstado').textContent = 'Completado';
+          document.getElementById('badgeEstado').className = 'badge badge-completado';
+          if (data.archivo_salida) {
+            document.getElementById('btnDescargar').style.display = 'inline-flex';
+          }
+        }
+      });
+  });
+  observer.observe(document.getElementById('statProcesadas'), { childList: true });
+}
+</script>
+{% endblock %}

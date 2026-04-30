@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión — Claro WFM</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  background: #1a1d27;
+}
+.login-left {
+  width: 420px; flex-shrink: 0;
+  background: #ffffff;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 3rem 2.75rem;
+}
+.login-right {
+  flex: 1;
+  background: linear-gradient(135deg, #DA291C 0%, #8B0000 50%, #1a1d27 100%);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 3rem;
+  position: relative; overflow: hidden;
+}
+.login-right::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    -45deg, rgba(255,255,255,.03) 0px, rgba(255,255,255,.03) 1px,
+    transparent 1px, transparent 40px
+  );
+}
+.brand { display: flex; align-items: center; gap: .6rem; margin-bottom: 2.5rem; }
+.brand-dot { width: 10px; height: 10px; border-radius: 50%; background: #DA291C; }
+.brand-name { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 700; color: #1a1d27; }
+.brand-name span { color: #DA291C; }
+h1 { font-size: 1.6rem; font-weight: 700; color: #1a1d27; margin-bottom: .4rem; }
+.subtitle { color: #6b7280; font-size: .9rem; margin-bottom: 2rem; }
+.form-group { margin-bottom: 1.1rem; }
+label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: .4rem; color: #374151; }
+input {
+  width: 100%; padding: .65rem 1rem;
+  border: 1.5px solid #e5e7eb; border-radius: 8px;
+  font-size: .9rem; font-family: inherit;
+  transition: border-color .18s, box-shadow .18s;
+}
+input:focus { outline: none; border-color: #DA291C; box-shadow: 0 0 0 3px rgba(218,41,28,.12); }
+.btn-login {
+  width: 100%; padding: .75rem;
+  background: #DA291C; color: white;
+  border: none; border-radius: 8px;
+  font-size: .95rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; margin-top: .5rem;
+  transition: background .18s, transform .15s, box-shadow .18s;
+}
+.btn-login:hover { background: #b01f14; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(218,41,28,.35); }
+.flash-error { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; padding: .65rem .9rem; border-radius: 7px; font-size: .85rem; margin-bottom: 1rem; }
+/* Right panel */
+.right-title { font-family: 'Barlow Condensed', sans-serif; font-size: 3rem; font-weight: 700; color: white; line-height: 1.1; margin-bottom: 1rem; position: relative; }
+.right-title span { color: rgba(255,255,255,.5); }
+.right-desc { color: rgba(255,255,255,.7); font-size: 1rem; max-width: 340px; line-height: 1.6; position: relative; }
+.stats { display: flex; gap: 2rem; margin-top: 2.5rem; position: relative; }
+.stat-item { text-align: center; }
+.stat-num { font-family: 'Barlow Condensed', sans-serif; font-size: 2rem; font-weight: 700; color: white; }
+.stat-lbl { font-size: .75rem; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .5px; }
+@media (max-width: 768px) {
+  .login-right { display: none; }
+  .login-left { width: 100%; min-height: 100vh; }
+}
+</style>
+</head>
+<body>
+<div class="login-left">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span class="brand-name">Claro <span>WFM</span></span>
+  </div>
+  <h1>Bienvenido</h1>
+  <p class="subtitle">Ingresa tus credenciales para continuar</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST">
+    <div class="form-group">
+      <label>Usuario</label>
+      <input type="text" name="username" placeholder="Tu usuario" required autofocus>
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" name="password" placeholder="••••••••" required>
+    </div>
+    <button type="submit" class="btn-login">Iniciar sesión →</button>
+  </form>
+</div>
+
+<div class="login-right">
+  <div class="right-title">Agendamiento<br><span>Automatizado</span><br>WFM</div>
+  <p class="right-desc">Sube tu Excel con órdenes de trabajo y el sistema las agendará automáticamente en el módulo de gestión.</p>
+  <div class="stats">
+    <div class="stat-item">
+      <div class="stat-num">10x</div>
+      <div class="stat-lbl">Más rápido</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">24/7</div>
+      <div class="stat-lbl">Disponible</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">100%</div>
+      <div class="stat-lbl">Trazable</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+services:
+  web:
+    build: .
+    container_name: claro_wfm_web
+    restart: always
+    ports:
+      - "5000:5000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - SECRET_KEY=cambia_esto_clave_muy_segura_2026
+      - MYSQL_HOST=claro_wfm_db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=claro_user
+      - MYSQL_PASSWORD=claro_pass_2026
+      - MYSQL_DB=claro_agendamiento
+      - REDIS_URL=redis://claro_wfm_redis:6379/0
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    networks:
+      - claro_net
+  worker:
+    build: .
+    container_name: claro_wfm_worker
+    restart: always
+    command: celery -A tareas.celery worker --pool=threads --concurrency=4 --loglevel=info
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - SECRET_KEY=cambia_esto_clave_muy_segura_2026
+      - MYSQL_HOST=claro_wfm_db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=claro_user
+      - MYSQL_PASSWORD=claro_pass_2026
+      - MYSQL_DB=claro_agendamiento
+      - REDIS_URL=redis://claro_wfm_redis:6379/0
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+      - /dev/shm:/dev/shm
+    depends_on:
+      - db
+      - redis
+    shm_size: '2gb'
+    networks:
+      - claro_net
+  db:
+    image: mysql:8.0
+    container_name: claro_wfm_db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_claro_2026
+      - MYSQL_DATABASE=claro_agendamiento
+      - MYSQL_USER=claro_user
+      - MYSQL_PASSWORD=claro_pass_2026
+    volumes:
+      - claro_mysql_data:/var/lib/mysql
+    ports:
+      - "3308:3306"
+    networks:
+      - claro_net
+  redis:
+    image: redis:7-alpine
+    container_name: claro_wfm_redis
+    restart: always
+    ports:
+      - "6380:6379"
+    networks:
+      - claro_net
+volumes:
+  claro_mysql_data:
+networks:
+  claro_net:
+    driver: bridge
